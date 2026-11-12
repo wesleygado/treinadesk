@@ -5,6 +5,7 @@ import { AppService } from './app.service.js';
 import { AuthModule } from './auth/auth.module.js';
 import { CategoriesModule } from './categories/categories.module.js';
 import { CommentsModule } from './comments/comments.module.js';
+import { HealthModule } from './health/health.module.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { TicketsModule } from './tickets/tickets.module.js';
 import { UsersModule } from './users/users.module.js';
@@ -17,6 +18,7 @@ import { UsersModule } from './users/users.module.js';
     CategoriesModule,
     TicketsModule,
     CommentsModule,
+    HealthModule,
   ],
   controllers: [AppController],
   providers: [

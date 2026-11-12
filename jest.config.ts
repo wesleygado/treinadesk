@@ -17,7 +17,7 @@ const config: Config = {
   transform: {
     // O app é ESM ("type": "module"), mas os testes rodam em CommonJS.
     '^.+\\.(t|j)s$': [
-      'ts-jest',
+      '<rootDir>/test/prisma-esm-transformer.cjs',
       {
         tsconfig: {
           module: 'commonjs',

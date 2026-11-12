@@ -31,6 +31,38 @@ Usuários de teste (senha `senhaSegura123`): `ana@teste.com` (CUSTOMER), `bia@te
 
 Testes: `npm test` (unitários) e `npm run test:e2e` (e2e — **apagam os dados do banco do `.env`**; rode `npm run seed` depois).
 
+## Deploy no Railway
+
+A API roda no Railway com PostgreSQL gerenciado; o frontend Next.js (Vercel) a chama pelo servidor. A configuração de build e deploy está em [`railway.json`](railway.json) e é lida automaticamente pelo Railway:
+
+| Etapa | Comando | O que faz |
+| --- | --- | --- |
+| Build | `npm run build` | `prisma generate` + `nest build` (o client do Prisma não está no git) |
+| Pre-deploy | `npx prisma migrate deploy && npm run seed` | Aplica as migrations e garante o ADMIN inicial (idempotente) |
+| Start | `node dist/main.js` | Sobe a API na `PORT` injetada pelo Railway |
+| Health check | `GET /health` | `200` com o banco respondendo, `503` sem ele |
+
+Passos:
+
+1. No projeto do Railway, adicione um **PostgreSQL** e um serviço ligado a este repositório.
+2. Antes do primeiro deploy, defina as variáveis do serviço da API:
+
+   | Variável | Valor | Obrigatória |
+   | --- | --- | --- |
+   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (referência pela rede privada) | sim — também é lida no build |
+   | `JWT_ACCESS_SECRET` | aleatório com 32+ caracteres (comando no `.env.example`) | sim |
+   | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | credenciais do ADMIN inicial | sim |
+   | `NODE_ENV` | `production` | **sim** — sem ela, o seed do pre-deploy cria os usuários de teste com a senha pública `senhaSegura123` |
+   | `JWT_ACCESS_EXPIRES_IN` | padrão `15m` | não |
+   | `REFRESH_TOKEN_TTL_DAYS` | padrão `7` | não |
+
+   Não defina `PORT`: o Railway injeta. Com alguma variável inválida, a API não sobe e o log diz qual (sem mostrar o valor).
+3. Faça o deploy e confira no log do pre-deploy as migrations aplicadas e a linha `Administrador disponível`.
+4. Gere um domínio para o serviço e confira `GET /health` (`200`) e `/docs`.
+5. No projeto Next da Vercel, aponte a variável de servidor da URL da API (ex.: `API_URL`) para esse domínio.
+
+Ao receber `SIGTERM` (redeploy, parada), a API fecha as conexões HTTP e com o banco e sai com código `0`.
+
 ## Lista de Commits
 
 | Commit | Link |

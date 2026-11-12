@@ -243,6 +243,7 @@ O `404` em vez de `403` para registros é proposital: a API não revela que um t
 | Rota | CUSTOMER | SUPPORT | ADMIN |
 |---|:-:|:-:|:-:|
 | `POST /users` (cadastro, pública) | — | — | — |
+| `GET /health` (health check, pública: `200 { status: "ok" }` ou `503` sem banco) | — | — | — |
 | `POST /users/staff`, `GET /users`, `PATCH /users/{id}/role` | | | ✓ |
 | `GET /users/me` | ✓ | ✓ | ✓ |
 | `GET /categories` | ✓ (ativas) | ✓ (ativas) | ✓ (todas, com `active`) |
