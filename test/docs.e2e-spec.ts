@@ -38,7 +38,12 @@ type OpenApiDocument = {
   };
 };
 
-const PUBLIC_OPERATIONS = ['POST /users', 'POST /auth/login', 'POST /auth/refresh'];
+const PUBLIC_OPERATIONS = [
+  'POST /users',
+  'POST /auth/login',
+  'POST /auth/refresh',
+  'GET /health',
+];
 
 const ALL_OPERATIONS = [
   'POST /users',
@@ -59,6 +64,7 @@ const ALL_OPERATIONS = [
   'PATCH /tickets/{id}/status',
   'POST /tickets/{ticketId}/comments',
   'GET /tickets/{ticketId}/comments',
+  'GET /health',
   'GET /',
 ];
 
@@ -107,7 +113,9 @@ describe('API docs (e2e)', () => {
   };
 
   const responseSchema = (key: string, status: string): Schema =>
-    resolve(operation(key).responses[status].content!['application/json'].schema);
+    resolve(
+      operation(key).responses[status].content!['application/json'].schema,
+    );
 
   const operationKeys = () =>
     Object.entries(doc.paths).flatMap(([path, methods]) =>
@@ -119,7 +127,9 @@ describe('API docs (e2e)', () => {
 
   beforeAll(async () => {
     app = await createApp();
-    const res = await request(app.getHttpServer()).get('/docs-json').expect(200);
+    const res = await request(app.getHttpServer())
+      .get('/docs-json')
+      .expect(200);
     doc = res.body;
   });
 
@@ -211,9 +221,17 @@ describe('API docs (e2e)', () => {
       const op = operation('POST /tickets');
       const body = resolve(op.requestBody!.content['application/json'].schema);
       expect(body.required).toEqual(
-        expect.arrayContaining(['title', 'description', 'priority', 'categoryId']),
+        expect.arrayContaining([
+          'title',
+          'description',
+          'priority',
+          'categoryId',
+        ]),
       );
-      expect(body.properties!.title).toMatchObject({ minLength: 5, maxLength: 120 });
+      expect(body.properties!.title).toMatchObject({
+        minLength: 5,
+        maxLength: 120,
+      });
       expect(body.properties!.description).toMatchObject({
         minLength: 10,
         maxLength: 5000,
@@ -234,7 +252,9 @@ describe('API docs (e2e)', () => {
       const schema = responseSchema('POST /auth/login', '200');
       expect(schema.properties!.accessToken).toMatchObject({ type: 'string' });
       expect(schema.properties!.refreshToken).toMatchObject({ type: 'string' });
-      expect(Object.keys(operation('POST /auth/login').responses)).toContain('401');
+      expect(Object.keys(operation('POST /auth/login').responses)).toContain(
+        '401',
+      );
     });
 
     it('descreve o ticket sem dados sensíveis do usuário', () => {
@@ -247,7 +267,9 @@ describe('API docs (e2e)', () => {
           keys: summaryKeys,
         });
       }
-      expect(JSON.stringify(doc.components.schemas)).not.toContain('passwordHash');
+      expect(JSON.stringify(doc.components.schemas)).not.toContain(
+        'passwordHash',
+      );
     });
 
     it('descreve a listagem paginada de tickets', () => {
@@ -256,15 +278,21 @@ describe('API docs (e2e)', () => {
         expect.arrayContaining(['data', 'page', 'limit', 'total']),
       );
       expect(page.properties!.data.type).toBe('array');
-      const params = (operation('GET /tickets').parameters ?? []).map((p) => p.name);
+      const params = (operation('GET /tickets').parameters ?? []).map(
+        (p) => p.name,
+      );
       expect(params).toEqual(
         expect.arrayContaining(['page', 'limit', 'status', 'priority']),
       );
     });
 
     it('usa o status de sucesso real de cada rota', () => {
-      expect(Object.keys(operation('POST /auth/logout').responses)).toContain('204');
-      expect(Object.keys(operation('POST /auth/login').responses)).toContain('200');
+      expect(Object.keys(operation('POST /auth/logout').responses)).toContain(
+        '204',
+      );
+      expect(Object.keys(operation('POST /auth/login').responses)).toContain(
+        '200',
+      );
       expect(Object.keys(operation('POST /users').responses)).toContain('201');
     });
   });
