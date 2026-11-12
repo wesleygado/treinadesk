@@ -33,7 +33,7 @@ Testes: `npm test` (unitários) e `npm run test:e2e` (e2e — **apagam os dados 
 
 ## Deploy no Railway
 
-A API roda no Railway com PostgreSQL gerenciado; o frontend Next.js (Vercel) a chama pelo servidor. A configuração de build e deploy está em [`railway.json`](railway.json) e é lida automaticamente pelo Railway:
+A API roda no Railway com PostgreSQL gerenciado; o frontend Next.js (Vercel) a chama pelo servidor. A infraestrutura (Postgres, serviço da API, comandos, health check e variáveis) está descrita como código em [`.railway/railway.ts`](.railway/railway.ts) — o [Infrastructure as Code](https://docs.railway.com/infrastructure-as-code) do Railway. O `railway.json` (Config as Code) não é usado: está obsoleto, serviços novos não o leem e o suporte acaba em 2026-12-01.
 
 | Etapa | Comando | O que faz |
 | --- | --- | --- |
@@ -42,24 +42,31 @@ A API roda no Railway com PostgreSQL gerenciado; o frontend Next.js (Vercel) a c
 | Start | `node dist/main.js` | Sobe a API na `PORT` injetada pelo Railway |
 | Health check | `GET /health` | `200` com o banco respondendo, `503` sem ele |
 
-Passos:
+Variáveis do serviço da API:
 
-1. No projeto do Railway, adicione um **PostgreSQL** e um serviço ligado a este repositório.
-2. Antes do primeiro deploy, defina as variáveis do serviço da API:
+| Variável | Valor | Onde fica |
+| --- | --- | --- |
+| `DATABASE_URL` | referência ao Postgres pela rede privada (`${{Postgres.DATABASE_URL}}`); também é lida no build | `.railway/railway.ts` |
+| `NODE_ENV` | `production` — **obrigatória**: sem ela, o seed do pre-deploy cria os usuários de teste com a senha pública `senhaSegura123` | `.railway/railway.ts` |
+| `JWT_ACCESS_SECRET` | aleatório com 32+ caracteres (comando no `.env.example`) | só no Railway (`preserve()` no código) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | credenciais do ADMIN inicial | só no Railway (`preserve()` no código) |
+| `JWT_ACCESS_EXPIRES_IN` / `REFRESH_TOKEN_TTL_DAYS` | opcionais (padrões `15m` e `7`) | adicionar ao `env` do código se forem usadas |
 
-   | Variável | Valor | Obrigatória |
-   | --- | --- | --- |
-   | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (referência pela rede privada) | sim — também é lida no build |
-   | `JWT_ACCESS_SECRET` | aleatório com 32+ caracteres (comando no `.env.example`) | sim |
-   | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | credenciais do ADMIN inicial | sim |
-   | `NODE_ENV` | `production` | **sim** — sem ela, o seed do pre-deploy cria os usuários de teste com a senha pública `senhaSegura123` |
-   | `JWT_ACCESS_EXPIRES_IN` | padrão `15m` | não |
-   | `REFRESH_TOKEN_TTL_DAYS` | padrão `7` | não |
+Não defina `PORT`: o Railway injeta. Com alguma variável inválida, a API não sobe e o log diz qual (sem mostrar o valor). As variáveis são gerenciadas pelo código (`variables: { managed: true }`): uma variável criada só no painel e ausente do `env` seria removida no próximo `apply`.
 
-   Não defina `PORT`: o Railway injeta. Com alguma variável inválida, a API não sobe e o log diz qual (sem mostrar o valor).
-3. Faça o deploy e confira no log do pre-deploy as migrations aplicadas e a linha `Administrador disponível`.
-4. Gere um domínio para o serviço e confira `GET /health` (`200`) e `/docs`.
-5. No projeto Next da Vercel, aponte a variável de servidor da URL da API (ex.: `API_URL`) para esse domínio.
+Alterar a infraestrutura (requer a [CLI do Railway](https://docs.railway.com/cli) 5.42.1+ e `railway login`):
+
+```bash
+railway link                  # uma vez: escolha o projeto treinadesk e o serviço treinadesk-api
+# edite .railway/railway.ts
+railway config plan           # mostra o que mudaria; revise
+railway config apply          # aplica (dispara deploy)
+railway variable set JWT_ACCESS_SECRET=...   # segredos: direto no Railway, nunca no arquivo
+```
+
+No Windows com Git Bash, o SDK `railway/iac` não encontra a CLI (usa `$_` para achar o executável); rode os comandos `config` no PowerShell ou prefixe com `_="<caminho do railway.exe>"`.
+
+Pushes na `main` fazem deploy automático. Para refazer o deploy de um commit pegando a configuração atual, use `railway redeploy --from-source` — o `redeploy` simples reaproveita o deploy anterior, inclusive a configuração antiga. No log do pre-deploy aparecem as migrations aplicadas e a linha `Administrador disponível`. No projeto Next da Vercel, aponte a variável de servidor da URL da API (ex.: `API_URL`) para o domínio do serviço.
 
 Ao receber `SIGTERM` (redeploy, parada), a API fecha as conexões HTTP e com o banco e sai com código `0`.
 
